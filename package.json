@@ -1,0 +1,31 @@
+{
+  "name": "anh-thu-sneaker",
+  "version": "1.0.0",
+  "description": "Production E-commerce Website + Admin + Google Sheets + Interactive 3D for Anh Thư Sneaker",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "canvas-confetti": "^1.9.3",
+    "cloudinary": "^2.11.0",
+    "googleapis": "^144.0.0",
+    "lucide-react": "^0.453.0",
+    "next": "14.2.15",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "three": "^0.169.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^20.14.0",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.0",
+    "@types/three": "^0.169.0",
+    "typescript": "^5.6.3"
+  }
+}

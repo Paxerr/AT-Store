@@ -10,6 +10,10 @@ export const CartDrawer: React.FC = () => {
   const pathname = usePathname();
   const { cart, isCartOpen, setIsCartOpen, removeFromCart, updateQuantity, subtotal, totalItems } = useCart();
 
+  const isFreeShipping = subtotal >= 1000000;
+  const diff = Math.max(0, 1000000 - subtotal);
+  const progressPct = Math.min(100, Math.round((subtotal / 1000000) * 100));
+
   if (pathname?.startsWith('/admin') || !isCartOpen) return null;
 
   return (
@@ -205,18 +209,48 @@ export const CartDrawer: React.FC = () => {
               background: 'var(--bg-secondary)',
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
-              <span>Tạm tính</span>
-              <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{subtotal.toLocaleString('vi-VN')}đ</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
-              <span>Phí vận chuyển</span>
-              <span>Tính khi thanh toán (30.000đ)</span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '16px', fontWeight: 700 }}>
-              <span>Tổng cộng (tạm tính)</span>
-              <span style={{ color: 'var(--accent-primary)', fontSize: '18px' }}>{subtotal.toLocaleString('vi-VN')}đ</span>
-            </div>
+              {/* Free Shipping Progress */}
+              <div
+                style={{
+                  marginBottom: '16px',
+                  padding: '10px 12px',
+                  borderRadius: 'var(--radius-md)',
+                  background: isFreeShipping ? 'rgba(16, 185, 129, 0.12)' : 'rgba(249, 115, 22, 0.1)',
+                  border: isFreeShipping ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(249, 115, 22, 0.2)',
+                  fontSize: '12px',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontWeight: 600 }}>
+                  <span style={{ color: isFreeShipping ? 'var(--accent-emerald)' : 'var(--accent-primary)' }}>
+                    {isFreeShipping ? '🎉 Đơn hàng được MIỄN PHÍ VẬN CHUYỂN!' : `Mua thêm ${diff.toLocaleString('vi-VN')}đ để Freeship`}
+                  </span>
+                  <span style={{ color: 'var(--text-dim)' }}>{progressPct}%</span>
+                </div>
+                <div style={{ width: '100%', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden' }}>
+                  <div
+                    style={{
+                      width: `${progressPct}%`,
+                      height: '100%',
+                      background: isFreeShipping ? 'var(--accent-emerald)' : 'var(--accent-primary)',
+                      borderRadius: '2px',
+                      transition: 'width 0.3s ease',
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                <span>Tạm tính</span>
+                <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{subtotal.toLocaleString('vi-VN')}đ</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px', color: 'var(--text-muted)' }}>
+                <span>Phí vận chuyển</span>
+                <span>{isFreeShipping ? <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>MIỄN PHÍ</span> : '30.000đ (toàn quốc)'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px', fontSize: '16px', fontWeight: 700 }}>
+                <span>Tổng cộng (tạm tính)</span>
+                <span style={{ color: 'var(--accent-primary)', fontSize: '18px' }}>{(subtotal + (isFreeShipping ? 0 : 30000)).toLocaleString('vi-VN')}đ</span>
+              </div>
 
             <Link
               href="/checkout"

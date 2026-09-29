@@ -8,6 +8,10 @@ import { useCart } from '@/context/CartContext';
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, subtotal, totalItems } = useCart();
 
+  const isFreeShipping = subtotal >= 1000000;
+  const diff = Math.max(0, 1000000 - subtotal);
+  const progressPct = Math.min(100, Math.round((subtotal / 1000000) * 100));
+
   if (cart.length === 0) {
     return (
       <div className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
@@ -91,22 +95,52 @@ export default function CartPage() {
               padding: '24px',
             }}
           >
-            <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Tổng kết giỏ hàng</h3>
+                <h3 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '16px' }}>Tổng kết giỏ hàng</h3>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px', marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-                <span>Tạm tính</span>
-                <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{subtotal.toLocaleString('vi-VN')}đ</span>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-                <span>Phí giao hàng</span>
-                <span>Tính ở bước thanh toán (30.000đ)</span>
-              </div>
-              <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '18px' }}>
-                <span>Tổng cộng (tạm tính)</span>
-                <span style={{ color: 'var(--accent-primary)' }}>{subtotal.toLocaleString('vi-VN')}đ</span>
-              </div>
-            </div>
+                {/* Free Shipping Progress Indicator */}
+                <div
+                  style={{
+                    marginBottom: '20px',
+                    padding: '12px 14px',
+                    borderRadius: 'var(--radius-md)',
+                    background: isFreeShipping ? 'rgba(16, 185, 129, 0.12)' : 'rgba(249, 115, 22, 0.1)',
+                    border: isFreeShipping ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(249, 115, 22, 0.2)',
+                    fontSize: '13px',
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontWeight: 600 }}>
+                    <span style={{ color: isFreeShipping ? 'var(--accent-emerald)' : 'var(--accent-primary)' }}>
+                      {isFreeShipping ? '🎉 Đơn hàng được MIỄN PHÍ VẬN CHUYỂN!' : `Mua thêm ${diff.toLocaleString('vi-VN')}đ để Freeship`}
+                    </span>
+                    <span style={{ color: 'var(--text-dim)' }}>{progressPct}%</span>
+                  </div>
+                  <div style={{ width: '100%', height: '5px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div
+                      style={{
+                        width: `${progressPct}%`,
+                        height: '100%',
+                        background: isFreeShipping ? 'var(--accent-emerald)' : 'var(--accent-primary)',
+                        borderRadius: '3px',
+                        transition: 'width 0.3s ease',
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px', marginBottom: '20px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                    <span>Tạm tính</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{subtotal.toLocaleString('vi-VN')}đ</span>
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
+                    <span>Phí giao hàng</span>
+                    <span>{isFreeShipping ? <span style={{ color: 'var(--accent-emerald)', fontWeight: 700 }}>MIỄN PHÍ</span> : '30.000đ (toàn quốc)'}</span>
+                  </div>
+                  <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', fontWeight: 800, fontSize: '18px' }}>
+                    <span>Tổng cộng (tạm tính)</span>
+                    <span style={{ color: 'var(--accent-primary)' }}>{(subtotal + (isFreeShipping ? 0 : 30000)).toLocaleString('vi-VN')}đ</span>
+                  </div>
+                </div>
 
             <Link href="/checkout" className="btn btn-accent btn-lg" style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
               Tiến hành Đặt Hàng <ArrowRight size={18} />

@@ -1,15 +1,36 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { ShieldCheck, Truck, RotateCcw, CreditCard, Phone, MapPin } from 'lucide-react';
+import { ShopSettings } from '@/types/settings';
 
 export const Footer: React.FC = () => {
   const pathname = usePathname();
+  const [settings, setSettings] = useState<ShopSettings | null>(null);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data) {
+          setSettings(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
   if (pathname?.startsWith('/admin')) {
     return null;
   }
+
+  const phone = settings?.PHONE || '0901234567';
+  const address = settings?.ADDRESS || '128 Đường Nguyễn Huệ, Phường Bến Nghé, Quận 1, TP. Hồ Chí Minh';
+  const zalo = settings?.ZALO_LINK || `https://zalo.me/${phone.replace(/[^0-9]/g, '')}`;
+  const facebook = settings?.FACEBOOK_LINK || 'https://facebook.com/anhthusneaker';
+  const instagram = settings?.INSTAGRAM_LINK || 'https://instagram.com/anhthusneaker';
+  const tiktok = settings?.TIKTOK_LINK || 'https://tiktok.com/@anhthusneaker';
 
   return (
     <footer
@@ -108,11 +129,11 @@ export const Footer: React.FC = () => {
             </p>
             <div style={{ fontSize: '13px', color: 'var(--text-dim)', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Phone size={14} color="var(--accent-primary)" /> Hotline/Zalo: 0901234567
+                <Phone size={14} color="var(--accent-primary)" /> Hotline/Zalo: <a href={`tel:${phone}`} style={{ color: 'var(--text-main)', fontWeight: 600 }}>{phone}</a>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
                 <MapPin size={14} color="var(--accent-primary)" style={{ flexShrink: 0, marginTop: '3px' }} />
-                128 Đường Nguyễn Huệ, Quận 1, TP. Hồ Chí Minh
+                <span>{address}</span>
               </div>
             </div>
           </div>
@@ -154,10 +175,10 @@ export const Footer: React.FC = () => {
               Theo dõi chúng mình để nhận thông báo mẫu sneaker mới và săn voucher giảm giá giới hạn:
             </p>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <a href="https://zalo.me/0901234567" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Zalo Shop</a>
-              <a href="https://facebook.com/anhthusneaker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Facebook</a>
-              <a href="https://instagram.com/anhthusneaker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Instagram</a>
-              <a href="https://tiktok.com/@anhthusneaker" target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">TikTok</a>
+              <a href={zalo} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Zalo Shop</a>
+              <a href={facebook} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Facebook</a>
+              <a href={instagram} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">Instagram</a>
+              <a href={tiktok} target="_blank" rel="noopener noreferrer" className="btn btn-secondary btn-sm">TikTok</a>
             </div>
             <div style={{ marginTop: '24px' }}>
               <Link href="/admin" style={{ fontSize: '12px', color: 'var(--text-dim)', textDecoration: 'underline' }}>

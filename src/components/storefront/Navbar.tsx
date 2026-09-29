@@ -2,13 +2,14 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingBag, Search, Menu, X, PackageCheck, Sparkles, Sun, Moon } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import { useTheme } from '@/context/ThemeContext';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
+  const router = useRouter();
   const { totalItems, setIsCartOpen } = useCart();
   const { theme, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -40,6 +41,7 @@ export const Navbar: React.FC = () => {
 
   const navLinks = [
     { label: 'Trang chủ', href: '/' },
+    { label: 'Tất cả sản phẩm', href: '/products' },
     { label: 'Sneaker', href: '/products?category=cat_sneaker' },
     { label: 'Giày', href: '/products?category=cat_shoes' },
     { label: 'Quần áo', href: '/products?category=cat_clothing' },
@@ -50,7 +52,8 @@ export const Navbar: React.FC = () => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      window.location.href = `/products?search=${encodeURIComponent(searchQuery.trim())}`;
+      router.push(`/products?search=${encodeURIComponent(searchQuery.trim())}`);
+      setSearchOpen(false);
     }
   };
 
@@ -192,6 +195,24 @@ export const Navbar: React.FC = () => {
               <Search size={18} />
             </button>
 
+            {/* CTA Button: Tất cả sản phẩm */}
+            <Link
+              href="/products"
+              className="btn btn-primary btn-sm hide-on-mobile"
+              style={{
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '8px 14px',
+                borderRadius: 'var(--radius-full)',
+              }}
+            >
+              <Sparkles size={15} color="var(--accent-primary)" />
+              <span>Tất cả sản phẩm</span>
+            </Link>
+
             {/* Track Order Direct Link */}
             <Link
               href="/track-order"
@@ -243,7 +264,7 @@ export const Navbar: React.FC = () => {
             <button
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Mở menu"
-              className="btn-secondary btn-sm"
+              className="btn-secondary btn-sm hide-on-desktop"
               style={{ width: '38px', height: '38px', padding: 0 }}
             >
               <Menu size={20} />
@@ -345,6 +366,22 @@ export const Navbar: React.FC = () => {
                   <X size={18} />
                 </button>
               </div>
+
+              {/* Mobile CTA: Tất cả sản phẩm */}
+              <Link
+                href="/products"
+                onClick={() => setMobileMenuOpen(false)}
+                className="btn btn-accent btn-sm"
+                style={{
+                  width: '100%',
+                  marginBottom: '14px',
+                  justifyContent: 'center',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                }}
+              >
+                <Sparkles size={16} /> Xem tất cả sản phẩm
+              </Link>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {navLinks.map((link) => (

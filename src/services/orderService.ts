@@ -94,9 +94,10 @@ export class OrderService {
       }
     }
 
-    // 4. Get shipping fee from settings (0đ for in-store POS)
+    // 4. Get shipping fee from settings (0đ for POS or orders >= 1.000.000đ)
     const settings = await this.settingsRepo.getSettings();
-    const shippingFee = validated.sales_channel === 'POS' ? 0 : (settings.SHIPPING_FEE ?? 30000);
+    const isFreeShipping = subtotal >= 1000000;
+    const shippingFee = validated.sales_channel === 'POS' || isFreeShipping ? 0 : (settings.SHIPPING_FEE ?? 30000);
 
     // 5. Calculate Final Total
     const totalAmount = Math.max(0, subtotal - discountAmount + shippingFee);

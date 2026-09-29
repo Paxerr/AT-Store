@@ -25,6 +25,7 @@ export default function ProductDetailPage() {
 
   useEffect(() => {
     if (!slug) return;
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const loadProduct = async () => {
       setLoading(true);
       try {
@@ -42,6 +43,9 @@ export default function ProductDetailPage() {
         setError('Lỗi khi tải thông tin sản phẩm');
       } finally {
         setLoading(false);
+        setTimeout(() => {
+          window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+        }, 0);
       }
     };
     loadProduct();
@@ -49,7 +53,18 @@ export default function ProductDetailPage() {
 
   if (loading) {
     return (
-      <div className="container" style={{ padding: '80px 0', textAlign: 'center' }}>
+      <div
+        className="container"
+        style={{
+          minHeight: '75vh',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          textAlign: 'center',
+          padding: '80px 0',
+        }}
+      >
         <div
           style={{
             width: '40px',
@@ -267,6 +282,11 @@ export default function ProductDetailPage() {
                   );
                 })}
               </div>
+
+              <div style={{ marginTop: '10px', fontSize: '12px', color: 'var(--text-dim)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={13} color="var(--accent-primary)" style={{ flexShrink: 0 }} />
+                <span>Không tìm thấy size của bạn hoặc hết hàng? Nhắn Zalo shop để được kiểm tra kho hoặc hỗ trợ đặt hàng riêng.</span>
+              </div>
             </div>
 
             {/* Quantity Selector */}
@@ -375,7 +395,22 @@ export default function ProductDetailPage() {
               <div><strong>Thương hiệu:</strong> {product.brand_name || 'Sneaker'}</div>
               <div><strong>Danh mục:</strong> {product.category_name || 'Sneaker'}</div>
               <div><strong>Mã SKU biến thể:</strong> {selectedVariant?.sku || 'N/A'}</div>
-              <div><strong>Chất liệu:</strong> Da tổng hợp & đế cao su đệm Air</div>
+              <div>
+                <strong>Chất liệu:</strong>{' '}
+                {(() => {
+                  const cat = (product.category_name || '').toLowerCase();
+                  if (cat.includes('quần') || cat.includes('áo') || cat.includes('clothing')) {
+                    return 'Chất vải Cotton 100% thoáng mát, co giãn nhẹ và chuẩn form';
+                  }
+                  if (cat.includes('phụ kiện') || cat.includes('tất') || cat.includes('dây')) {
+                    return 'Sợi dệt / Hợp kim chuyên dụng cao cấp, bền đẹp';
+                  }
+                  if (cat.includes('tây') || cat.includes('loafer') || cat.includes('da')) {
+                    return 'Da thật / Da vi sợi cao cấp & đế đúc êm ái chống trượt';
+                  }
+                  return 'Da cao cấp kết hợp đệm bọt khí êm ái, chống mỏi chân';
+                })()}
+              </div>
             </div>
           </div>
         </div>

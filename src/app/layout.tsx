@@ -6,6 +6,7 @@ import { Navbar } from '@/components/storefront/Navbar';
 import { Footer } from '@/components/storefront/Footer';
 import { CartDrawer } from '@/components/storefront/CartDrawer';
 import { CartToastAlert } from '@/components/storefront/CartToastAlert';
+import { ScrollToTop } from '@/components/storefront/ScrollToTop';
 
 export const metadata: Metadata = {
   title: 'Anh Thư Sneaker — Cửa hàng Sneaker & Thời trang thể thao cao cấp',
@@ -86,6 +87,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           <CartProvider>
+            <ScrollToTop />
             <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
               <Navbar />
               <main style={{ flex: 1 }}>{children}</main>

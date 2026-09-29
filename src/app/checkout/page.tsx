@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, Truck, CreditCard, ArrowLeft, Tag, CheckCircle2, AlertCircle, ShoppingBag } from 'lucide-react';
@@ -32,7 +32,21 @@ export default function CheckoutPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  const shippingFee = 30000;
+  const [shippingFeeConfig, setShippingFeeConfig] = useState(30000);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.SHIPPING_FEE !== undefined) {
+          setShippingFeeConfig(Number(json.data.SHIPPING_FEE));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const isFreeShipping = subtotal >= 1000000;
+  const shippingFee = isFreeShipping ? 0 : shippingFeeConfig;
   const discountAmount = appliedCoupon?.discount || 0;
   const finalTotal = Math.max(0, subtotal - discountAmount + shippingFee);
 
@@ -494,8 +508,10 @@ export default function CheckoutPage() {
                   )}
 
                   <div style={{ display: 'flex', justifyContent: 'space-between', color: 'var(--text-muted)' }}>
-                    <span>Phí vận chuyển tiêu chuẩn</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: 600 }}>{shippingFee.toLocaleString('vi-VN')}đ</span>
+                    <span>Phí vận chuyển toàn quốc</span>
+                    <span style={{ color: isFreeShipping ? 'var(--accent-emerald)' : 'var(--text-main)', fontWeight: 700 }}>
+                      {isFreeShipping ? 'MIỄN PHÍ' : `${shippingFee.toLocaleString('vi-VN')}đ`}
+                    </span>
                   </div>
 
                   <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '14px', marginTop: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>

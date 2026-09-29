@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ShieldCheck, Truck, CreditCard, ArrowLeft, Tag, CheckCircle2, AlertCircle, ShoppingBag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import VietnamAddressSelect from '@/components/storefront/VietnamAddressSelect';
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -15,9 +16,9 @@ export default function CheckoutPage() {
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerEmail, setCustomerEmail] = useState('');
   const [shippingAddress, setShippingAddress] = useState('');
-  const [shippingCity, setShippingCity] = useState('TP. Hồ Chí Minh');
-  const [shippingDistrict, setShippingDistrict] = useState('Quận 1');
-  const [shippingWard, setShippingWard] = useState('Phường Bến Nghé');
+  const [shippingCity, setShippingCity] = useState('');
+  const [shippingDistrict, setShippingDistrict] = useState('');
+  const [shippingWard, setShippingWard] = useState('');
   const [notes, setNotes] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<'BANK_TRANSFER' | 'COD'>('BANK_TRANSFER');
 
@@ -80,6 +81,11 @@ export default function CheckoutPage() {
 
     if (!customerName.trim() || !customerPhone.trim() || !shippingAddress.trim()) {
       setSubmitError('Vui lòng điền đầy đủ họ tên, số điện thoại và địa chỉ giao hàng nhận hàng.');
+      return;
+    }
+
+    if (!shippingCity || !shippingDistrict || !shippingWard) {
+      setSubmitError('Vui lòng chọn đầy đủ Tỉnh / Thành phố, Quận / Huyện và Phường / Xã.');
       return;
     }
 
@@ -283,44 +289,15 @@ export default function CheckoutPage() {
                     </div>
                   </div>
 
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                        Tỉnh / Thành phố
-                      </label>
-                      <input
-                        type="text"
-                        value={shippingCity}
-                        onChange={(e) => setShippingCity(e.target.value)}
-                        className="input-field"
-                        style={{ fontSize: '13px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                        Quận / Huyện
-                      </label>
-                      <input
-                        type="text"
-                        value={shippingDistrict}
-                        onChange={(e) => setShippingDistrict(e.target.value)}
-                        className="input-field"
-                        style={{ fontSize: '13px' }}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, marginBottom: '4px' }}>
-                        Phường / Xã
-                      </label>
-                      <input
-                        type="text"
-                        value={shippingWard}
-                        onChange={(e) => setShippingWard(e.target.value)}
-                        className="input-field"
-                        style={{ fontSize: '13px' }}
-                      />
-                    </div>
-                  </div>
+                  <VietnamAddressSelect
+                    city={shippingCity}
+                    district={shippingDistrict}
+                    ward={shippingWard}
+                    onCityChange={setShippingCity}
+                    onDistrictChange={setShippingDistrict}
+                    onWardChange={setShippingWard}
+                    required
+                  />
 
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, marginBottom: '6px' }}>

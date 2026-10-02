@@ -11,6 +11,12 @@ export interface ProductMedia {
   is_primary: boolean;
 }
 
+export interface ProductOption {
+  id?: string;
+  name: string;
+  values: string[];
+}
+
 export interface ProductVariant {
   variant_id: string;
   product_id: string;
@@ -26,6 +32,7 @@ export interface ProductVariant {
   weight: number;
   status: VariantStatus;
   image: string;
+  options?: Record<string, string>;
 }
 
 export interface Product {
@@ -46,6 +53,7 @@ export interface Product {
   created_at: string;
   updated_at: string;
   // Computed / joined fields for UI
+  options?: ProductOption[];
   variants?: ProductVariant[];
   media?: ProductMedia[];
   category_name?: string;

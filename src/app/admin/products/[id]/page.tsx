@@ -15,7 +15,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { MultiImageUploader, ImageItem } from '@/components/admin/MultiImageUploader';
-import { Product, ProductVariant, Category, Brand } from '@/types/product';
+import { VariantManager } from '@/components/admin/VariantManager';
+import { Product, ProductVariant, Category, Brand, ProductOption } from '@/types/product';
 
 export default function EditProductPage() {
   const router = useRouter();
@@ -48,8 +49,9 @@ export default function EditProductPage() {
   // Media Gallery (Multi-image)
   const [images, setImages] = useState<ImageItem[]>([]);
 
-  // Variants list
-  const [variants, setVariants] = useState<ProductVariant[]>([]);
+  // Options & Variants list
+  const [options, setOptions] = useState<ProductOption[]>([]);
+  const [variants, setVariants] = useState<any[]>([]);
 
   // Fetch product data and categories/brands
   useEffect(() => {
@@ -112,6 +114,26 @@ export default function EditProductPage() {
           setVariants(prod.variants);
         }
 
+        // Load or reconstruct options
+        if (prod.options && prod.options.length > 0) {
+          setOptions(prod.options);
+        } else if (prod.variants && prod.variants.length > 0) {
+          const reconstructed: ProductOption[] = [];
+          const colors = Array.from(new Set(prod.variants.map((v) => v.color || 'Tiêu chuẩn'))).filter(
+            (c) => c && c !== 'Tiêu chuẩn'
+          );
+          const sizes = Array.from(new Set(prod.variants.map((v) => v.size || 'Tiêu chuẩn'))).filter(
+            (s) => s && s !== 'Tiêu chuẩn'
+          );
+          if (colors.length > 0) {
+            reconstructed.push({ name: 'Màu sắc', values: colors });
+          }
+          if (sizes.length > 0) {
+            reconstructed.push({ name: 'Kích cỡ', values: sizes });
+          }
+          setOptions(reconstructed);
+        }
+
         // Categories
         const catJson = await catRes.json();
         if (catJson.success && Array.isArray(catJson.data)) {
@@ -132,42 +154,6 @@ export default function EditProductPage() {
 
     loadData();
   }, [id]);
-
-  const addVariantRow = () => {
-    const nextSize = variants.length > 0 ? (Number(variants[variants.length - 1].size) + 1 || 43).toString() : '39';
-    setVariants((prev) => [
-      ...prev,
-      {
-        variant_id: `var_${Date.now()}`,
-        product_id: '',
-        size: nextSize,
-        sku: `ATS-PROD-${Date.now().toString().slice(-4)}`,
-        barcode: '',
-        color: 'Tiêu chuẩn',
-        price: variants[0]?.price || 2000000,
-        compare_at_price: 0,
-        cost_price: variants[0]?.cost_price || 1400000,
-        stock: 5,
-        reserved_stock: 0,
-        weight: 750,
-        status: 'ACTIVE',
-        image: images[0]?.url || '',
-      },
-    ]);
-  };
-
-  const removeVariantRow = (idx: number) => {
-    if (variants.length <= 1) return;
-    setVariants((prev) => prev.filter((_, i) => i !== idx));
-  };
-
-  const updateVariant = (idx: number, field: string, val: any) => {
-    setVariants((prev) => {
-      const copy = [...prev];
-      copy[idx] = { ...copy[idx], [field]: val };
-      return copy;
-    });
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -214,16 +200,18 @@ export default function EditProductPage() {
         is_sale: isSale,
         seo_title: `${name.trim()} | Anh Thư Sneaker`,
         seo_description: shortDesc.trim() || description.trim(),
+        options: options,
         variants: variants.map((v) => ({
           ...v,
           sku: v.sku.trim(),
-          barcode: v.barcode?.trim() || '',
-          size: v.size.trim(),
+          barcode: (v.barcode || '').trim(),
+          size: (v.size || 'Tiêu chuẩn').trim(),
+          color: (v.color || 'Tiêu chuẩn').trim(),
           price: Number(v.price) || 0,
           compare_at_price: Number(v.compare_at_price) || 0,
           cost_price: Number(v.cost_price) || 0,
           stock: Number(v.stock) || 0,
-          image: primaryImg,
+          image: v.image || primaryImg,
         })),
         media: mediaList,
       };
@@ -527,131 +515,15 @@ export default function EditProductPage() {
             <MultiImageUploader images={images} onChange={setImages} />
           </div>
 
-          {/* Section 3: Variants & Stock */}
-          <div
-            style={{
-              background: 'var(--bg-surface)',
-              padding: '24px',
-              borderRadius: 'var(--radius-lg)',
-              border: '1px solid var(--border-subtle)',
-            }}
-          >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <div>
-                <h3 style={{ fontSize: '16px', fontWeight: 700 }}>3. Danh sách Biến thể (Kích cỡ & Tồn kho)</h3>
-                <p style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
-                  Cập nhật giá bán, giá vốn và điều chỉnh tồn kho cho từng kích cỡ.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={addVariantRow}
-                className="btn btn-secondary btn-sm"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <Plus size={14} /> Thêm size mới
-              </button>
-            </div>
-
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--border-subtle)', background: 'var(--bg-secondary)', color: 'var(--text-dim)' }}>
-                    <th style={{ padding: '10px' }}>SIZE</th>
-                    <th style={{ padding: '10px' }}>SKU</th>
-                    <th style={{ padding: '10px' }}>GIÁ BÁN (VND) *</th>
-                    <th style={{ padding: '10px' }}>GIÁ GỐC (VND)</th>
-                    <th style={{ padding: '10px' }}>GIÁ VỐN (COGS)</th>
-                    <th style={{ padding: '10px' }}>TỒN KHO *</th>
-                    <th style={{ padding: '10px', textAlign: 'center' }}>XÓA</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {variants.map((v, idx) => (
-                    <tr key={v.variant_id || idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="text"
-                          required
-                          value={v.size}
-                          onChange={(e) => updateVariant(idx, 'size', e.target.value)}
-                          className="input-field"
-                          style={{ width: '80px', padding: '6px 8px' }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="text"
-                          required
-                          value={v.sku}
-                          onChange={(e) => updateVariant(idx, 'sku', e.target.value)}
-                          className="input-field"
-                          style={{ width: '150px', padding: '6px 8px' }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="number"
-                          required
-                          min={0}
-                          value={v.price}
-                          onChange={(e) => updateVariant(idx, 'price', e.target.value)}
-                          className="input-field"
-                          style={{ width: '130px', padding: '6px 8px', fontWeight: 700, color: 'var(--accent-primary)' }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="number"
-                          min={0}
-                          value={v.compare_at_price || 0}
-                          onChange={(e) => updateVariant(idx, 'compare_at_price', e.target.value)}
-                          className="input-field"
-                          style={{ width: '130px', padding: '6px 8px' }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="number"
-                          min={0}
-                          value={v.cost_price || 0}
-                          onChange={(e) => updateVariant(idx, 'cost_price', e.target.value)}
-                          className="input-field"
-                          style={{ width: '130px', padding: '6px 8px' }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px' }}>
-                        <input
-                          type="number"
-                          required
-                          min={0}
-                          value={v.stock}
-                          onChange={(e) => updateVariant(idx, 'stock', e.target.value)}
-                          className="input-field"
-                          style={{ width: '90px', padding: '6px 8px', fontWeight: 700 }}
-                        />
-                      </td>
-                      <td style={{ padding: '8px', textAlign: 'center' }}>
-                        <button
-                          type="button"
-                          onClick={() => removeVariantRow(idx)}
-                          disabled={variants.length <= 1}
-                          style={{
-                            color: '#f43f5e',
-                            padding: '6px',
-                            cursor: variants.length <= 1 ? 'not-allowed' : 'pointer',
-                            opacity: variants.length <= 1 ? 0.3 : 1,
-                          }}
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Section 3: Customizable Variants, Options & Matrix Generator */}
+          <VariantManager
+            variants={variants}
+            onChange={setVariants}
+            options={options}
+            onOptionsChange={setOptions}
+            productImages={images}
+            productName={name}
+          />
 
           {/* Action Bar */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>

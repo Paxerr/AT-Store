@@ -18,8 +18,9 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
-  // Selected variant & quantity
+  // Selected variant, color & quantity
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string>('');
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -34,7 +35,11 @@ export default function ProductDetailPage() {
         if (json.success && json.data) {
           setProduct(json.data);
           if (json.data.variants && json.data.variants.length > 0) {
-            setSelectedVariant(json.data.variants[0]);
+            const firstAvail =
+              json.data.variants.find((v: ProductVariant) => v.stock - (v.reserved_stock || 0) > 0) ||
+              json.data.variants[0];
+            setSelectedVariant(firstAvail);
+            setSelectedColor(firstAvail.color || 'Tiêu chuẩn');
           }
         } else {
           setError(json.error || 'Không tìm thấy sản phẩm');
@@ -95,20 +100,74 @@ export default function ProductDetailPage() {
   }
 
   const images = (product.media?.filter((m) => m.type === 'IMAGE') || []).map((m) => formatImageUrl(m.url));
-  const currentImage = images[activeImageIndex] || formatImageUrl(selectedVariant?.image) || 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80';
+  const currentImage =
+    images[activeImageIndex] ||
+    formatImageUrl(selectedVariant?.image) ||
+    'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80';
 
   const price = selectedVariant?.price || product.min_price || 0;
   const comparePrice = selectedVariant?.compare_at_price || 0;
   const discountPct = comparePrice > price ? Math.round(((comparePrice - price) / comparePrice) * 100) : 0;
   const availableStock = selectedVariant ? Math.max(0, selectedVariant.stock - (selectedVariant.reserved_stock || 0)) : 0;
 
+  // Extract unique colors from variants
+  const uniqueColors = Array.from(
+    new Set((product.variants || []).map((v) => v.color || 'Tiêu chuẩn'))
+  ).filter(Boolean);
+  const hasMultipleColors =
+    uniqueColors.length > 1 || (uniqueColors.length === 1 && uniqueColors[0] !== 'Tiêu chuẩn');
+
+  // Filter variants for current color (or all if single color)
+  const variantsForColor = hasMultipleColors
+    ? (product.variants || []).filter((v) => (v.color || 'Tiêu chuẩn') === selectedColor)
+    : product.variants || [];
+
+  // Handle color selection
+  const handleSelectColor = (colorName: string) => {
+    setSelectedColor(colorName);
+    const currentSize = selectedVariant?.size;
+    // Find matching size with this color, or first available size of this color
+    const matchSize = (product.variants || []).find(
+      (v) => (v.color || 'Tiêu chuẩn') === colorName && v.size === currentSize
+    );
+    const firstAvailOfColor =
+      (product.variants || []).find(
+        (v) => (v.color || 'Tiêu chuẩn') === colorName && v.stock - (v.reserved_stock || 0) > 0
+      ) ||
+      (product.variants || []).find((v) => (v.color || 'Tiêu chuẩn') === colorName);
+
+    const targetVariant = matchSize || firstAvailOfColor;
+    if (targetVariant) {
+      setSelectedVariant(targetVariant);
+      if (targetVariant.image) {
+        const targetImgUrl = formatImageUrl(targetVariant.image);
+        const idx = images.findIndex((img) => img === targetImgUrl || img.includes(targetVariant.image));
+        if (idx !== -1) setActiveImageIndex(idx);
+      }
+    }
+  };
+
+  // Handle size/variant selection
+  const handleSelectVariant = (variant: ProductVariant) => {
+    setSelectedVariant(variant);
+    if (variant.image) {
+      const targetImgUrl = formatImageUrl(variant.image);
+      const idx = images.findIndex((img) => img === targetImgUrl || img.includes(variant.image));
+      if (idx !== -1) setActiveImageIndex(idx);
+    }
+  };
+
   const handleAddToCart = () => {
     if (!selectedVariant) return;
+    const colorPart =
+      selectedVariant.color && selectedVariant.color !== 'Tiêu chuẩn'
+        ? ` • Màu: ${selectedVariant.color}`
+        : '';
     addToCart({
       product_id: product.product_id,
       variant_id: selectedVariant.variant_id,
       product_name: product.name,
-      variant_title: `Size ${selectedVariant.size}${selectedVariant.color ? ` - ${selectedVariant.color}` : ''}`,
+      variant_title: `Size ${selectedVariant.size}${colorPart}`,
       sku: selectedVariant.sku,
       price: selectedVariant.price,
       quantity,
@@ -239,31 +298,117 @@ export default function ProductDetailPage() {
               {product.short_description || product.description}
             </p>
 
+            {/* Colorway / Phối màu Selector (If multiple colors exist) */}
+            {hasMultipleColors && (
+              <div style={{ marginBottom: '24px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 700 }}>
+                    Chọn Phối màu (Color): <strong style={{ color: 'var(--accent-primary)', marginLeft: '4px' }}>{selectedColor}</strong>
+                  </span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
+                    {uniqueColors.length} tùy chọn màu
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                  {uniqueColors.map((colorName) => {
+                    const isSelected = selectedColor === colorName;
+                    const variantWithImg = (product.variants || []).find(
+                      (v) => (v.color || 'Tiêu chuẩn') === colorName && v.image
+                    );
+                    const colorVariants = (product.variants || []).filter(
+                      (v) => (v.color || 'Tiêu chuẩn') === colorName
+                    );
+                    const totalColorStock = colorVariants.reduce(
+                      (sum, v) => sum + Math.max(0, v.stock - (v.reserved_stock || 0)),
+                      0
+                    );
+
+                    return (
+                      <button
+                        key={colorName}
+                        type="button"
+                        onClick={() => handleSelectColor(colorName)}
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '8px',
+                          padding: '8px 14px',
+                          borderRadius: 'var(--radius-md)',
+                          background: isSelected ? 'rgba(234, 179, 8, 0.12)' : 'var(--bg-surface)',
+                          border: isSelected ? '2px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
+                          color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          fontSize: '13px',
+                          fontWeight: isSelected ? 700 : 500,
+                        }}
+                      >
+                        {variantWithImg?.image ? (
+                          <img
+                            src={formatImageUrl(variantWithImg.image)}
+                            alt={colorName}
+                            style={{
+                              width: '24px',
+                              height: '24px',
+                              borderRadius: '4px',
+                              objectFit: 'cover',
+                              border: '1px solid var(--border-subtle)',
+                            }}
+                          />
+                        ) : (
+                          <span
+                            style={{
+                              width: '12px',
+                              height: '12px',
+                              borderRadius: '50%',
+                              background:
+                                colorName.toLowerCase().includes('đen') ? '#111827' :
+                                colorName.toLowerCase().includes('trắng') ? '#ffffff' :
+                                colorName.toLowerCase().includes('đỏ') ? '#ef4444' :
+                                colorName.toLowerCase().includes('xanh') ? '#2563eb' :
+                                colorName.toLowerCase().includes('xám') ? '#64748b' :
+                                colorName.toLowerCase().includes('vàng') ? '#eab308' :
+                                colorName.toLowerCase().includes('cam') ? '#f97316' :
+                                colorName.toLowerCase().includes('hồng') ? '#ec4899' :
+                                colorName.toLowerCase().includes('be') || colorName.toLowerCase().includes('kem') ? '#fef08a' :
+                                'var(--accent-primary)',
+                              border: '1px solid rgba(255,255,255,0.2)',
+                            }}
+                          />
+                        )}
+                        <span>{colorName}</span>
+                        {totalColorStock <= 0 && (
+                          <span style={{ fontSize: '10px', color: '#f43f5e', background: 'rgba(244, 63, 94, 0.1)', padding: '1px 5px', borderRadius: '4px' }}>
+                            Hết hàng
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Size Selector */}
             <div style={{ marginBottom: '24px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700 }}>Chọn kích cỡ (Size):</span>
                 {selectedVariant && (
-                  <span style={{ fontSize: '12px', color: availableStock > 0 ? 'var(--accent-emerald)' : '#f43f5e' }}>
-                    {availableStock > 0 ? `Còn ${availableStock} đôi sẵn hàng` : 'Tạm hết hàng'}
+                  <span style={{ fontSize: '12px', color: availableStock > 0 ? 'var(--accent-emerald)' : '#f43f5e', fontWeight: 600 }}>
+                    {availableStock > 0 ? `Còn ${availableStock} đôi sẵn hàng` : 'Tạm hết size này'}
                   </span>
                 )}
               </div>
 
               <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                {(product.variants || []).map((v) => {
+                {variantsForColor.map((v) => {
                   const isSelected = selectedVariant?.variant_id === v.variant_id;
                   const isAvailable = v.stock - (v.reserved_stock || 0) > 0;
                   return (
                     <button
                       key={v.variant_id}
-                      onClick={() => {
-                        setSelectedVariant(v);
-                        if (v.image) {
-                          const idx = images.indexOf(v.image);
-                          if (idx !== -1) setActiveImageIndex(idx);
-                        }
-                      }}
+                      onClick={() => handleSelectVariant(v)}
                       disabled={!isAvailable}
                       style={{
                         padding: '10px 18px',
@@ -273,11 +418,30 @@ export default function ProductDetailPage() {
                         background: isSelected ? 'var(--accent-primary)' : 'var(--bg-surface)',
                         color: isSelected ? '#ffffff' : isAvailable ? 'var(--text-main)' : 'var(--text-dim)',
                         border: isSelected ? '1px solid var(--accent-primary)' : '1px solid var(--border-subtle)',
-                        opacity: isAvailable ? 1 : 0.4,
+                        opacity: isAvailable ? 1 : 0.35,
                         cursor: isAvailable ? 'pointer' : 'not-allowed',
+                        position: 'relative',
+                        transition: 'all 0.2s ease',
                       }}
                     >
                       {v.size}
+                      {!isAvailable && (
+                        <span
+                          style={{
+                            position: 'absolute',
+                            top: '-6px',
+                            right: '-6px',
+                            background: '#f43f5e',
+                            color: '#fff',
+                            fontSize: '9px',
+                            padding: '1px 4px',
+                            borderRadius: '4px',
+                            fontWeight: 600,
+                          }}
+                        >
+                          Hết
+                        </span>
+                      )}
                     </button>
                   );
                 })}

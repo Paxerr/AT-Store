@@ -1,10 +1,16 @@
 import { z } from 'zod';
 
+export const productOptionSchema = z.object({
+  id: z.string().optional(),
+  name: z.string().min(1, 'Tên thuộc tính không được trống'),
+  values: z.array(z.string().min(1)).min(1, 'Cần ít nhất một giá trị'),
+});
+
 export const variantInputSchema = z.object({
   variant_id: z.string().optional(),
   sku: z.string().min(1, 'SKU là bắt buộc'),
   barcode: z.string().default(''),
-  size: z.string().min(1, 'Kích cỡ là bắt buộc'),
+  size: z.string().default('Tiêu chuẩn'),
   color: z.string().default('Tiêu chuẩn'),
   price: z.number().min(0, 'Giá bán không được âm'),
   compare_at_price: z.number().min(0).default(0),
@@ -12,6 +18,7 @@ export const variantInputSchema = z.object({
   stock: z.number().int().min(0, 'Tồn kho không được âm'),
   weight: z.number().default(500),
   image: z.string().default(''),
+  options: z.record(z.string()).optional(),
 });
 
 export const productMediaInputSchema = z.object({
@@ -47,6 +54,7 @@ export const productInputSchema = z.object({
   has_3d_model: z.boolean().default(false),
   seo_title: z.string().default(''),
   seo_description: z.string().default(''),
+  options: z.array(productOptionSchema).default([]),
   variants: z.array(variantInputSchema).min(1, 'Cần ít nhất một biến thể sản phẩm'),
   media: z.array(productMediaInputSchema).default([]),
 });

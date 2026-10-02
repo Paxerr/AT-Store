@@ -116,7 +116,7 @@ export class ProductService {
       product_id: productId,
       sku: v.sku,
       barcode: v.barcode || '',
-      size: v.size,
+      size: v.size || 'Tiêu chuẩn',
       color: v.color || 'Tiêu chuẩn',
       price: v.price,
       compare_at_price: v.compare_at_price || 0,
@@ -126,6 +126,7 @@ export class ProductService {
       weight: v.weight || 500,
       status: 'ACTIVE',
       image: v.image || '',
+      options: v.options,
     }));
 
     const media: ProductMedia[] = validated.media.map((m, idx) => ({
@@ -154,6 +155,7 @@ export class ProductService {
       has_3d_model: validated.has_3d_model,
       seo_title: validated.seo_title || validated.name,
       seo_description: validated.seo_description || validated.short_description,
+      options: validated.options || [],
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

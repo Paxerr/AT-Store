@@ -308,10 +308,15 @@ export default function AdminPosPage() {
                             cursor: isOutOfStock ? 'not-allowed' : 'pointer',
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
+                            gap: '5px',
                           }}
                         >
-                          Size {v.size}
+                          {v.color && v.color !== 'Tiêu chuẩn' && (
+                            <span style={{ color: 'var(--accent-primary)', fontSize: '11px', fontWeight: 700 }}>
+                              {v.color}
+                            </span>
+                          )}
+                          <span>Size {v.size}</span>
                           <span
                             style={{
                               fontSize: '10px',
@@ -390,7 +395,9 @@ export default function AdminPosPage() {
                       {item.product.name}
                     </div>
                     <div style={{ fontSize: '11px', color: 'var(--text-dim)' }}>
-                      Size {item.variant.size} • {item.variant.price.toLocaleString('vi-VN')}đ
+                      Size {item.variant.size}
+                      {item.variant.color && item.variant.color !== 'Tiêu chuẩn' ? ` • Màu ${item.variant.color}` : ''} •{' '}
+                      {item.variant.price.toLocaleString('vi-VN')}đ
                     </div>
                   </div>
 

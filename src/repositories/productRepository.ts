@@ -101,17 +101,49 @@ export class ProductRepository implements IProductRepository {
     });
   }
 
-  public async updateProduct(id: string, updates: Partial<Product>): Promise<Product> {
+  public async updateProduct(
+    id: string,
+    updates: Partial<Product> & { variants?: ProductVariant[]; media?: ProductMedia[] }
+  ): Promise<Product> {
     return this.store.acquireLock(async () => {
       const raw = this.store.getRawData();
       const idx = raw.products.findIndex((p) => p.product_id === id || p.slug === id);
       if (idx === -1) throw new Error(`Product ${id} not found`);
 
+      const targetProductId = raw.products[idx].product_id;
+
+      // Extract variants and media from updates
+      const { variants: newVariants, media: newMedia, ...productFields } = updates;
+
       raw.products[idx] = {
         ...raw.products[idx],
-        ...updates,
+        ...productFields,
         updated_at: new Date().toISOString(),
       };
+
+      // If new variants are supplied, replace them for this product
+      if (Array.isArray(newVariants) && newVariants.length > 0) {
+        raw.variants = raw.variants.filter((v) => v.product_id !== targetProductId);
+        raw.variants.push(
+          ...newVariants.map((v, i) => ({
+            ...v,
+            product_id: targetProductId,
+            variant_id: v.variant_id || `var_${targetProductId}_${i + 1}`,
+          }))
+        );
+      }
+
+      // If new media are supplied, replace them for this product
+      if (Array.isArray(newMedia)) {
+        raw.media = raw.media.filter((m) => m.product_id !== targetProductId);
+        raw.media.push(
+          ...newMedia.map((m, i) => ({
+            ...m,
+            product_id: targetProductId,
+            media_id: m.media_id || `med_${targetProductId}_${i + 1}`,
+          }))
+        );
+      }
 
       return raw.products[idx];
     });
@@ -156,8 +188,10 @@ export class ProductRepository implements IProductRepository {
     return this.store.getMedia().filter((m) => m.product_id === productId);
   }
 
-  public async getAllCategories(): Promise<Category[]> {
-    return this.store.getCategories().filter((c) => c.active);
+  public async getAllCategories(includeInactive: boolean = false): Promise<Category[]> {
+    const categories = this.store.getCategories();
+    const filtered = includeInactive ? categories : categories.filter((c) => c.active);
+    return [...filtered].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
   }
 
   public async getAllBrands(): Promise<Brand[]> {

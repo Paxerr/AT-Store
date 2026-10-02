@@ -22,6 +22,7 @@ import {
   Moon,
   LogOut,
   ShieldCheck,
+  FolderTree,
 } from 'lucide-react';
 import { useTheme } from '@/context/ThemeContext';
 import { AdminAuthProvider, useAdminAuth } from '@/context/AdminAuthContext';
@@ -117,6 +118,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       items: [
         { label: 'Tất cả sản phẩm', href: '/admin/products', icon: <Package size={18} /> },
         { label: 'Thêm sản phẩm mới', href: '/admin/products/new', icon: <PlusCircle size={18} /> },
+        { label: 'Danh mục sản phẩm', href: '/admin/categories', icon: <FolderTree size={18} /> },
         { label: 'Tồn kho & Điều chỉnh', href: '/admin/inventory', icon: <Layers size={18} /> },
       ],
     },

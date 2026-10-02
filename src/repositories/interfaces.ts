@@ -10,14 +10,22 @@ export interface IProductRepository {
   getProductBySlug(slug: string): Promise<Product | null>;
   getProductById(id: string): Promise<Product | null>;
   createProduct(product: Product, variants: ProductVariant[], media: ProductMedia[]): Promise<Product>;
-  updateProduct(id: string, updates: Partial<Product>): Promise<Product>;
+  updateProduct(id: string, updates: Partial<Product> & { variants?: ProductVariant[]; media?: ProductMedia[] }): Promise<Product>;
   deleteProduct(id: string): Promise<boolean>;
   getVariantsByProductId(productId: string): Promise<ProductVariant[]>;
   getVariantById(variantId: string): Promise<ProductVariant | null>;
   updateVariant(variantId: string, updates: Partial<ProductVariant>): Promise<ProductVariant>;
   getMediaByProductId(productId: string): Promise<ProductMedia[]>;
-  getAllCategories(): Promise<Category[]>;
+  getAllCategories(includeInactive?: boolean): Promise<Category[]>;
   getAllBrands(): Promise<Brand[]>;
+}
+
+export interface ICategoryRepository {
+  getAllCategories(includeInactive?: boolean): Promise<Category[]>;
+  getCategoryById(id: string): Promise<Category | null>;
+  createCategory(category: Category): Promise<Category>;
+  updateCategory(id: string, updates: Partial<Category>): Promise<Category>;
+  deleteCategory(id: string): Promise<{ success: boolean; error?: string }>;
 }
 
 export interface IOrderRepository {

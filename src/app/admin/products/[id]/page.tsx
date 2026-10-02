@@ -1,127 +1,157 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft,
   Plus,
   Trash2,
   Save,
-  Sparkles,
   Loader2,
   Image as ImageIcon,
   CheckCircle2,
   AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { MultiImageUploader, ImageItem } from '@/components/admin/MultiImageUploader';
-import { Category, Brand } from '@/types/product';
+import { Product, ProductVariant, Category, Brand } from '@/types/product';
 
-export default function NewProductPage() {
+export default function EditProductPage() {
   const router = useRouter();
+  const params = useParams();
+  const id = params?.id as string;
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   // Basic Info
   const [name, setName] = useState('');
   const [slug, setSlug] = useState('');
-  const [categoryId, setCategoryId] = useState('cat_sneaker');
-  const [brandId, setBrandId] = useState('brand_nike');
+  const [categoryId, setCategoryId] = useState('');
+  const [brandId, setBrandId] = useState('');
   const [shortDesc, setShortDesc] = useState('');
   const [description, setDescription] = useState('');
 
   // Categories & Brands dynamic list
   const [categories, setCategories] = useState<Category[]>([]);
   const [brands, setBrands] = useState<Brand[]>([]);
-  const [loadingData, setLoadingData] = useState(true);
 
   // Badges & Status
   const [featured, setFeatured] = useState(false);
-  const [isNew, setIsNew] = useState(true);
+  const [isNew, setIsNew] = useState(false);
   const [isSale, setIsSale] = useState(false);
   const [status, setStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
 
   // Media Gallery (Multi-image)
-  const [images, setImages] = useState<ImageItem[]>([
-    {
-      id: 'initial_img_1',
-      url: 'https://images.unsplash.com/photo-1595950653106-6c9ebd614d3a?auto=format&fit=crop&w=800&q=80',
-      alt: 'Anh Thu Sneaker',
-      is_primary: true,
-      sort_order: 1,
-    },
-  ]);
+  const [images, setImages] = useState<ImageItem[]>([]);
 
   // Variants list
-  const [variants, setVariants] = useState([
-    { size: '39', sku: 'ATS-PROD-39', barcode: '', price: 2500000, compare_at_price: 2800000, cost_price: 1800000, stock: 5 },
-    { size: '40', sku: 'ATS-PROD-40', barcode: '', price: 2500000, compare_at_price: 2800000, cost_price: 1800000, stock: 8 },
-    { size: '41', sku: 'ATS-PROD-41', barcode: '', price: 2500000, compare_at_price: 2800000, cost_price: 1800000, stock: 10 },
-    { size: '42', sku: 'ATS-PROD-42', barcode: '', price: 2500000, compare_at_price: 2800000, cost_price: 1800000, stock: 6 },
-  ]);
+  const [variants, setVariants] = useState<ProductVariant[]>([]);
 
-  const [saving, setSaving] = useState(false);
-  const [errorMsg, setErrorMsg] = useState('');
-
-  // Load dynamic categories & brands
+  // Fetch product data and categories/brands
   useEffect(() => {
-    const fetchData = async () => {
-      setLoadingData(true);
+    if (!id) return;
+
+    const loadData = async () => {
+      setLoading(true);
+      setErrorMsg('');
+
       try {
-        const [catRes, prodRes] = await Promise.all([
+        const [prodRes, catRes, allProdRes] = await Promise.all([
+          fetch(`/api/products/${id}`),
           fetch('/api/categories?all=true'),
           fetch('/api/products'),
         ]);
 
+        const prodJson = await prodRes.json();
+        if (!prodJson.success || !prodJson.data) {
+          setErrorMsg(prodJson.error || 'Không tìm thấy sản phẩm');
+          setLoading(false);
+          return;
+        }
+
+        const prod: Product = prodJson.data;
+        setName(prod.name || '');
+        setSlug(prod.slug || '');
+        setCategoryId(prod.category_id || '');
+        setBrandId(prod.brand_id || '');
+        setShortDesc(prod.short_description || '');
+        setDescription(prod.description || '');
+        setStatus((prod.status as any) || 'ACTIVE');
+        setFeatured(Boolean(prod.featured));
+        setIsNew(Boolean(prod.is_new));
+        setIsSale(Boolean(prod.is_sale));
+
+        // Load media
+        if (prod.media && prod.media.length > 0) {
+          const loadedImages: ImageItem[] = prod.media.map((m, idx) => ({
+            id: m.media_id || `img_${idx}`,
+            url: m.url,
+            alt: m.alt || '',
+            is_primary: Boolean(m.is_primary),
+            sort_order: m.sort_order || idx + 1,
+          }));
+          setImages(loadedImages);
+        } else if (prod.variants?.[0]?.image) {
+          setImages([
+            {
+              id: 'primary_var_img',
+              url: prod.variants[0].image,
+              alt: prod.name,
+              is_primary: true,
+              sort_order: 1,
+            },
+          ]);
+        }
+
+        // Load variants
+        if (prod.variants && prod.variants.length > 0) {
+          setVariants(prod.variants);
+        }
+
+        // Categories
         const catJson = await catRes.json();
         if (catJson.success && Array.isArray(catJson.data)) {
           setCategories(catJson.data);
-          if (catJson.data.length > 0) {
-            setCategoryId(catJson.data[0].category_id);
-          }
         }
 
-        const prodJson = await prodRes.json();
-        if (prodJson.success && Array.isArray(prodJson.data?.brands)) {
-          setBrands(prodJson.data.brands);
-          if (prodJson.data.brands.length > 0) {
-            setBrandId(prodJson.data.brands[0].brand_id);
-          }
+        // Brands
+        const allProdJson = await allProdRes.json();
+        if (allProdJson.success && Array.isArray(allProdJson.data?.brands)) {
+          setBrands(allProdJson.data.brands);
         }
-      } catch (err) {
-        console.error('Error fetching initial categories/brands:', err);
+      } catch (err: any) {
+        setErrorMsg('Lỗi kết nối khi tải dữ liệu sản phẩm');
       } finally {
-        setLoadingData(false);
+        setLoading(false);
       }
     };
 
-    fetchData();
-  }, []);
-
-  // Auto-generate slug from name
-  const handleNameChange = (val: string) => {
-    setName(val);
-    const autoSlug = val
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[đĐ]/g, 'd')
-      .replace(/[^a-z0-9\s-]/g, '')
-      .trim()
-      .replace(/\s+/g, '-');
-    setSlug(autoSlug);
-  };
+    loadData();
+  }, [id]);
 
   const addVariantRow = () => {
     const nextSize = variants.length > 0 ? (Number(variants[variants.length - 1].size) + 1 || 43).toString() : '39';
     setVariants((prev) => [
       ...prev,
       {
+        variant_id: `var_${Date.now()}`,
+        product_id: '',
         size: nextSize,
         sku: `ATS-PROD-${Date.now().toString().slice(-4)}`,
         barcode: '',
+        color: 'Tiêu chuẩn',
         price: variants[0]?.price || 2000000,
         compare_at_price: 0,
         cost_price: variants[0]?.cost_price || 1400000,
         stock: 5,
+        reserved_stock: 0,
+        weight: 750,
+        status: 'ACTIVE',
+        image: images[0]?.url || '',
       },
     ]);
   };
@@ -148,19 +178,21 @@ export default function NewProductPage() {
     }
 
     if (images.length === 0) {
-      setErrorMsg('Vui lòng tải lên ít nhất 1 hình ảnh sản phẩm');
+      setErrorMsg('Vui lòng thêm ít nhất 1 hình ảnh sản phẩm');
       window.scrollTo({ top: 300, behavior: 'smooth' });
       return;
     }
 
     setSaving(true);
     setErrorMsg('');
+    setSuccessMsg('');
 
     try {
-      // Find primary image or use first one
       const primaryImg = images.find((m) => m.is_primary)?.url || images[0]?.url || '';
 
       const mediaList = images.map((m, idx) => ({
+        media_id: m.id?.startsWith('med_') ? m.id : `med_${idx + 1}`,
+        product_id: '',
         type: 'IMAGE' as const,
         url: m.url,
         thumbnail: m.url,
@@ -180,67 +212,90 @@ export default function NewProductPage() {
         featured: featured,
         is_new: isNew,
         is_sale: isSale,
-        has_3d_model: false,
         seo_title: `${name.trim()} | Anh Thư Sneaker`,
         seo_description: shortDesc.trim() || description.trim(),
         variants: variants.map((v) => ({
+          ...v,
           sku: v.sku.trim(),
-          barcode: v.barcode.trim(),
+          barcode: v.barcode?.trim() || '',
           size: v.size.trim(),
-          color: 'Tiêu chuẩn',
           price: Number(v.price) || 0,
           compare_at_price: Number(v.compare_at_price) || 0,
           cost_price: Number(v.cost_price) || 0,
           stock: Number(v.stock) || 0,
-          weight: 750,
           image: primaryImg,
         })),
         media: mediaList,
       };
 
-      const res = await fetch('/api/products', {
-        method: 'POST',
+      const res = await fetch(`/api/products/${id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       const json = await res.json();
       if (json.success) {
-        alert('Tạo sản phẩm và lưu thư viện ảnh thành công!');
-        router.push('/admin/products');
+        setSuccessMsg('Đã lưu mọi thay đổi của sản phẩm và hình ảnh thành công!');
+        setTimeout(() => {
+          router.push('/admin/products');
+        }, 1200);
       } else {
-        setErrorMsg(json.error || 'Lỗi tạo sản phẩm');
+        setErrorMsg(json.error || 'Lỗi khi cập nhật sản phẩm');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {
-      setErrorMsg(err.message || 'Lỗi kết nối khi tạo sản phẩm');
+      setErrorMsg(err.message || 'Lỗi kết nối khi cập nhật sản phẩm');
       window.scrollTo({ top: 0, behavior: 'smooth' });
     } finally {
       setSaving(false);
     }
   };
 
+  if (loading) {
+    return (
+      <div style={{ maxWidth: '1180px', margin: '0 auto', textAlign: 'center', padding: '80px 0' }}>
+        <Loader2 size={36} className="animate-spin" color="var(--accent-primary)" style={{ margin: '0 auto 16px' }} />
+        <p style={{ color: 'var(--text-dim)', fontSize: '14px' }}>Đang tải thông tin sản phẩm và thư viện ảnh...</p>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: '1180px', margin: '0 auto', paddingBottom: '60px' }}>
-      <Link
-        href="/admin/products"
-        style={{
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '13px',
-          color: 'var(--text-muted)',
-          marginBottom: '20px',
-        }}
-      >
-        <ArrowLeft size={16} /> Quay lại danh sách sản phẩm
-      </Link>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+        <Link
+          href="/admin/products"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '13px',
+            color: 'var(--text-muted)',
+          }}
+        >
+          <ArrowLeft size={16} /> Quay lại danh sách sản phẩm
+        </Link>
+
+        {slug && (
+          <Link
+            href={`/products/${slug}`}
+            target="_blank"
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            <ExternalLink size={14} /> Xem trên cửa hàng
+          </Link>
+        )}
+      </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px' }}>
         <div>
-          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 800 }}>Thêm Sản Phẩm Mới</h1>
+          <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '26px', fontWeight: 800 }}>
+            Chỉnh Sửa Sản Phẩm: {name}
+          </h1>
           <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            Nhập thông tin sản phẩm, tải cùng lúc nhiều ảnh sắc nét và thiết lập biến thể kích cỡ tồn kho.
+            Quản lý thư viện hình ảnh, danh mục, giá bán và tồn kho biến thể.
           </p>
         </div>
       </div>
@@ -267,6 +322,28 @@ export default function NewProductPage() {
         </div>
       )}
 
+      {successMsg && (
+        <div
+          style={{
+            marginBottom: '24px',
+            padding: '14px 18px',
+            borderRadius: 'var(--radius-md)',
+            background: 'rgba(16, 185, 129, 0.15)',
+            border: '1px solid rgba(16, 185, 129, 0.3)',
+            color: 'var(--accent-emerald)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            fontSize: '14px',
+            fontWeight: 600,
+          }}
+          className="animate-fade-in"
+        >
+          <CheckCircle2 size={20} />
+          {successMsg}
+        </div>
+      )}
+
       <form onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
           {/* Section 1: Basic Info */}
@@ -288,9 +365,8 @@ export default function NewProductPage() {
                 <input
                   type="text"
                   required
-                  placeholder="Ví dụ: Nike Air Jordan 1 Low Black White"
                   value={name}
-                  onChange={(e) => handleNameChange(e.target.value)}
+                  onChange={(e) => setName(e.target.value)}
                   className="input-field"
                 />
               </div>
@@ -310,16 +386,9 @@ export default function NewProductPage() {
                 </div>
 
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 600 }}>Danh mục *</label>
-                    <Link
-                      href="/admin/categories"
-                      target="_blank"
-                      style={{ fontSize: '11px', color: 'var(--accent-primary)', textDecoration: 'underline' }}
-                    >
-                      + Quản lý danh mục
-                    </Link>
-                  </div>
+                  <label style={{ fontSize: '13px', fontWeight: 600, display: 'block', marginBottom: '6px' }}>
+                    Danh mục *
+                  </label>
                   <select
                     value={categoryId}
                     onChange={(e) => setCategoryId(e.target.value)}
@@ -384,7 +453,7 @@ export default function NewProductPage() {
                 </label>
                 <input
                   type="text"
-                  placeholder="Tóm tắt ngắn gọn chất liệu và điểm nhấn sản phẩm..."
+                  placeholder="Tóm tắt ngắn gọn chất liệu và điểm nhấn..."
                   value={shortDesc}
                   onChange={(e) => setShortDesc(e.target.value)}
                   className="input-field"
@@ -397,7 +466,7 @@ export default function NewProductPage() {
                 </label>
                 <textarea
                   rows={4}
-                  placeholder="Mô tả kỹ thuật, form giày, độ ôm chân, xuất xứ..."
+                  placeholder="Mô tả kỹ thuật, form giày..."
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   className="input-field"
@@ -448,10 +517,10 @@ export default function NewProductPage() {
             <div style={{ marginBottom: '16px' }}>
               <h3 style={{ fontSize: '16px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                 <ImageIcon size={18} color="var(--accent-primary)" />
-                2. Hình ảnh sản phẩm (Tải lên cùng lúc nhiều ảnh & Thư viện ảnh)
+                2. Quản lý Thư viện Hình ảnh ({images.length} ảnh)
               </h3>
               <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-                Bạn có thể chọn cùng lúc nhiều ảnh từ máy tính hoặc kéo thả vào khung. Click nút &quot;Đặt làm chính&quot; để chọn ảnh đại diện.
+                Tải thêm nhiều ảnh mới, đổi thứ tự hiển thị, xóa bớt ảnh cũ hoặc chọn ảnh đại diện chính (Primary).
               </p>
             </div>
 
@@ -471,10 +540,15 @@ export default function NewProductPage() {
               <div>
                 <h3 style={{ fontSize: '16px', fontWeight: 700 }}>3. Danh sách Biến thể (Kích cỡ & Tồn kho)</h3>
                 <p style={{ fontSize: '12px', color: 'var(--text-dim)' }}>
-                  Mỗi kích cỡ có SKU, giá bán, giá vốn và số lượng tồn kho riêng biệt.
+                  Cập nhật giá bán, giá vốn và điều chỉnh tồn kho cho từng kích cỡ.
                 </p>
               </div>
-              <button type="button" onClick={addVariantRow} className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+              <button
+                type="button"
+                onClick={addVariantRow}
+                className="btn btn-secondary btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+              >
                 <Plus size={14} /> Thêm size mới
               </button>
             </div>
@@ -494,7 +568,7 @@ export default function NewProductPage() {
                 </thead>
                 <tbody>
                   {variants.map((v, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
+                    <tr key={v.variant_id || idx} style={{ borderBottom: '1px solid var(--border-subtle)' }}>
                       <td style={{ padding: '8px' }}>
                         <input
                           type="text"
@@ -530,7 +604,7 @@ export default function NewProductPage() {
                         <input
                           type="number"
                           min={0}
-                          value={v.compare_at_price}
+                          value={v.compare_at_price || 0}
                           onChange={(e) => updateVariant(idx, 'compare_at_price', e.target.value)}
                           className="input-field"
                           style={{ width: '130px', padding: '6px 8px' }}
@@ -540,7 +614,7 @@ export default function NewProductPage() {
                         <input
                           type="number"
                           min={0}
-                          value={v.cost_price}
+                          value={v.cost_price || 0}
                           onChange={(e) => updateVariant(idx, 'cost_price', e.target.value)}
                           className="input-field"
                           style={{ width: '130px', padding: '6px 8px' }}
@@ -579,7 +653,7 @@ export default function NewProductPage() {
             </div>
           </div>
 
-          {/* Submit Action Bar */}
+          {/* Action Bar */}
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
             <Link href="/admin/products" className="btn btn-secondary btn-lg">
               Hủy
@@ -592,11 +666,11 @@ export default function NewProductPage() {
             >
               {saving ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" /> Đang lưu sản phẩm...
+                  <Loader2 size={18} className="animate-spin" /> Đang cập nhật...
                 </>
               ) : (
                 <>
-                  <Save size={18} /> Lưu Sản Phẩm
+                  <Save size={18} /> Lưu Thay Đổi
                 </>
               )}
             </button>

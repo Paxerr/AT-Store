@@ -16,11 +16,21 @@ export const variantInputSchema = z.object({
 
 export const productMediaInputSchema = z.object({
   type: z.enum(['IMAGE', 'VIDEO', 'MODEL_3D']),
-  url: z.string().url('URL không hợp lệ'),
+  url: z.string().min(1, 'Đường dẫn ảnh là bắt buộc'),
   thumbnail: z.string().default(''),
   alt: z.string().default(''),
   is_primary: z.boolean().default(false),
   sort_order: z.number().default(0),
+});
+
+export const categoryInputSchema = z.object({
+  name: z.string().min(2, 'Tên danh mục tối thiểu 2 ký tự'),
+  slug: z.string().min(2, 'Đường dẫn slug không hợp lệ'),
+  description: z.string().default(''),
+  image: z.string().default(''),
+  parent_id: z.string().optional(),
+  sort_order: z.number().int().default(1),
+  active: z.boolean().default(true),
 });
 
 export const productInputSchema = z.object({

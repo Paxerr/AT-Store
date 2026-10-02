@@ -18,6 +18,8 @@ export const Navbar: React.FC = () => {
   const [shopAvatar, setShopAvatar] = useState<string | null>(null);
   const [announcement, setAnnouncement] = useState<{ active: boolean; text: string } | null>(null);
 
+  const [navCategories, setNavCategories] = useState<{ label: string; href: string }[]>([]);
+
   useEffect(() => {
     fetch('/api/settings')
       .then((r) => r.json())
@@ -33,6 +35,19 @@ export const Navbar: React.FC = () => {
         }
       })
       .catch(() => {});
+
+    fetch('/api/categories')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+          const links = json.data.slice(0, 5).map((c: any) => ({
+            label: c.name,
+            href: `/products?category=${c.category_id}`,
+          }));
+          setNavCategories(links);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   if (pathname?.startsWith('/admin')) {
@@ -42,10 +57,14 @@ export const Navbar: React.FC = () => {
   const navLinks = [
     { label: 'Trang chủ', href: '/' },
     { label: 'Tất cả sản phẩm', href: '/products' },
-    { label: 'Sneaker', href: '/products?category=cat_sneaker' },
-    { label: 'Giày', href: '/products?category=cat_shoes' },
-    { label: 'Quần áo', href: '/products?category=cat_clothing' },
-    { label: 'Phụ kiện', href: '/products?category=cat_accessories' },
+    ...(navCategories.length > 0
+      ? navCategories
+      : [
+          { label: 'Sneaker', href: '/products?category=cat_sneaker' },
+          { label: 'Giày', href: '/products?category=cat_shoes' },
+          { label: 'Quần áo', href: '/products?category=cat_clothing' },
+          { label: 'Phụ kiện', href: '/products?category=cat_accessories' },
+        ]),
     { label: 'Sale 🔥', href: '/products?is_sale=true' },
   ];
 

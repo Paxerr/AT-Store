@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   Phone,
   Eye,
+  FolderTree,
 } from 'lucide-react';
 import { BusinessSummary } from '@/services/analyticsService';
 
@@ -62,11 +63,14 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* Quick Actions Shortcuts */}
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <Link href="/admin/pos" className="btn btn-accent btn-sm">
-            <CreditCard size={16} /> Tạo đơn tại quầy / chat (POS)
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <Link href="/admin/categories" className="btn btn-secondary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <FolderTree size={16} /> Quản lý danh mục
           </Link>
-          <Link href="/admin/products/new" className="btn btn-primary btn-sm">
+          <Link href="/admin/pos" className="btn btn-accent btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+            <CreditCard size={16} /> Tạo đơn POS
+          </Link>
+          <Link href="/admin/products/new" className="btn btn-primary btn-sm" style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
             <PlusCircle size={16} /> Thêm sản phẩm
           </Link>
         </div>

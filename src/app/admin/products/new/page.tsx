@@ -150,6 +150,43 @@ export default function NewProductPage() {
         sort_order: m.sort_order || idx + 1,
       }));
 
+      // Sanitize options: filter out any empty options
+      const cleanOptions = options
+        .filter((o) => o && o.name && o.name.trim() && Array.isArray(o.values) && o.values.length > 0)
+        .map((o) => ({
+          name: o.name.trim(),
+          values: o.values.map((val) => String(val).trim()).filter(Boolean),
+        }));
+
+      // Ensure unique, valid SKUs and sanitized numbers
+      const usedSkus = new Set<string>();
+      const baseCode = (name.trim() ? name.trim().toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6) : 'PROD') || 'PROD';
+      
+      const cleanVariants = variants.map((v, idx) => {
+        let sku = String(v.sku || '').trim();
+        if (!sku) {
+          sku = `ATS-${baseCode}-${idx + 1}`;
+        }
+        if (usedSkus.has(sku)) {
+          sku = `${sku}-${idx + 1}`;
+        }
+        usedSkus.add(sku);
+
+        return {
+          sku,
+          barcode: String(v.barcode || '').trim(),
+          size: String(v.size || 'Tiêu chuẩn').trim() || 'Tiêu chuẩn',
+          color: String(v.color || 'Tiêu chuẩn').trim() || 'Tiêu chuẩn',
+          price: Math.max(0, Number(v.price) || 0),
+          compare_at_price: Math.max(0, Number(v.compare_at_price) || 0),
+          cost_price: Math.max(0, Number(v.cost_price) || 0),
+          stock: Math.max(0, Math.floor(Number(v.stock) || 0)),
+          weight: Number(v.weight) || 750,
+          image: v.image || primaryImg,
+          options: v.options || {},
+        };
+      });
+
       const payload = {
         name: name.trim(),
         slug: slug.trim(),
@@ -163,20 +200,9 @@ export default function NewProductPage() {
         is_sale: isSale,
         has_3d_model: false,
         seo_title: `${name.trim()} | Anh Thư Sneaker`,
-        options: options,
-        variants: variants.map((v) => ({
-          sku: v.sku.trim(),
-          barcode: (v.barcode || '').trim(),
-          size: (v.size || 'Tiêu chuẩn').trim(),
-          color: (v.color || 'Tiêu chuẩn').trim(),
-          price: Number(v.price) || 0,
-          compare_at_price: Number(v.compare_at_price) || 0,
-          cost_price: Number(v.cost_price) || 0,
-          stock: Number(v.stock) || 0,
-          weight: 750,
-          image: v.image || primaryImg,
-          options: v.options,
-        })),
+        seo_description: shortDesc.trim() || description.trim(),
+        options: cleanOptions,
+        variants: cleanVariants,
         media: mediaList,
       };
 
@@ -188,10 +214,17 @@ export default function NewProductPage() {
 
       const json = await res.json();
       if (json.success) {
-        alert('Tạo sản phẩm và lưu thư viện ảnh thành công!');
+        alert('Tạo sản phẩm và thiết lập biến thể thành công!');
         router.push('/admin/products');
       } else {
-        setErrorMsg(json.error || 'Lỗi tạo sản phẩm');
+        let msg = json.error;
+        try {
+          const parsed = JSON.parse(json.error);
+          if (Array.isArray(parsed)) {
+            msg = parsed.map((e: any) => `${e.path?.join('.')}: ${e.message}`).join(', ');
+          }
+        } catch (e) {}
+        setErrorMsg(msg || 'Lỗi tạo sản phẩm');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       }
     } catch (err: any) {

@@ -2,8 +2,8 @@ import { z } from 'zod';
 
 export const productOptionSchema = z.object({
   id: z.string().optional(),
-  name: z.string().min(1, 'Tên thuộc tính không được trống'),
-  values: z.array(z.string().min(1)).min(1, 'Cần ít nhất một giá trị'),
+  name: z.string().default('Thuộc tính'),
+  values: z.array(z.string()).default([]),
 });
 
 export const variantInputSchema = z.object({
@@ -18,7 +18,7 @@ export const variantInputSchema = z.object({
   stock: z.number().int().min(0, 'Tồn kho không được âm'),
   weight: z.number().default(500),
   image: z.string().default(''),
-  options: z.record(z.string()).optional(),
+  options: z.record(z.any()).optional(),
 });
 
 export const productMediaInputSchema = z.object({

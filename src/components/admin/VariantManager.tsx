@@ -99,9 +99,10 @@ export function VariantManager({
     setTimeout(() => setSuccessToast(''), 3000);
   };
 
-  // Helper to slugify SKU
-  const generateSlugPart = (str: string) => {
-    return str
+  // Helper to slugify SKU safely
+  const generateSlugPart = (str: any) => {
+    if (!str && str !== 0) return '';
+    return String(str)
       .toLowerCase()
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
@@ -110,11 +111,11 @@ export function VariantManager({
       .toUpperCase();
   };
 
-  // Add Option (e.g. "Màu sắc", "Kích cỡ")
+  // Add Option (e.g. "Màu sắc", "Kích cỡ", "Phiên bản"...)
   const handleAddOption = (name: string, defaultValues: string[] = []) => {
-    const trimmed = name.trim();
+    const trimmed = (name || '').trim();
     if (!trimmed) return;
-    if (options.some((o) => o.name.toLowerCase() === trimmed.toLowerCase())) {
+    if (options.some((o) => String(o.name).toLowerCase() === trimmed.toLowerCase())) {
       alert(`Thuộc tính "${trimmed}" đã tồn tại!`);
       return;
     }
@@ -131,10 +132,11 @@ export function VariantManager({
 
   // Add Tag to Option
   const handleAddTag = (optIndex: number, val: string) => {
-    const trimmed = val.trim();
+    const trimmed = (val || '').trim();
     if (!trimmed) return;
     const opt = options[optIndex];
-    if (opt.values.includes(trimmed)) return;
+    if (!opt) return;
+    if (opt.values.some((v) => String(v).toLowerCase() === trimmed.toLowerCase())) return;
 
     const newValues = [...opt.values, trimmed];
     const updated = [...options];
@@ -147,22 +149,23 @@ export function VariantManager({
   // Remove Tag from Option
   const handleRemoveTag = (optIndex: number, tagVal: string) => {
     const opt = options[optIndex];
+    if (!opt) return;
     const updated = [...options];
-    updated[optIndex] = { ...opt, values: opt.values.filter((v) => v !== tagVal) };
+    updated[optIndex] = { ...opt, values: opt.values.filter((v) => String(v) !== String(tagVal)) };
     onOptionsChange(updated);
   };
 
-  // Auto-generate Combinations Matrix
+  // Auto-generate Combinations Matrix (Robust, collision-free)
   const handleGenerateMatrix = () => {
-    if (options.length === 0) {
-      alert('Vui lòng tạo ít nhất 1 thuộc tính và giá trị trước khi sinh ma trận!');
+    if (!options || options.length === 0) {
+      alert('Vui lòng tạo ít nhất 1 thuộc tính (ví dụ: Màu sắc, Kích cỡ) trước khi sinh ma trận!');
       return;
     }
 
     // Filter valid options with values
-    const validOptions = options.filter((o) => o.values.length > 0);
+    const validOptions = options.filter((o) => Array.isArray(o.values) && o.values.length > 0);
     if (validOptions.length === 0) {
-      alert('Các thuộc tính cần có ít nhất 1 giá trị!');
+      alert('Các thuộc tính cần có ít nhất 1 giá trị tag (ví dụ: thêm các size 39, 40 hoặc màu Trắng, Đen)!');
       return;
     }
 
@@ -172,58 +175,119 @@ export function VariantManager({
       const nextCombos: Record<string, string>[] = [];
       combinations.forEach((combo) => {
         opt.values.forEach((val) => {
-          nextCombos.push({ ...combo, [opt.name]: val });
+          nextCombos.push({ ...combo, [opt.name]: String(val).trim() });
         });
       });
       combinations = nextCombos;
     });
 
     const baseCode = generateSlugPart(productName).slice(0, 8) || 'ATS';
-    const firstPrice = variants[0]?.price || 2000000;
-    const firstComparePrice = variants[0]?.compare_at_price || 0;
-    const firstCostPrice = variants[0]?.cost_price || 1400000;
-    const firstStock = variants[0]?.stock || 5;
+    const firstPrice = Number(variants[0]?.price) || 2000000;
+    const firstComparePrice = Number(variants[0]?.compare_at_price) || 0;
+    const firstCostPrice = Number(variants[0]?.cost_price) || 1400000;
+    const firstStock = Number(variants[0]?.stock) || 5;
 
-    // Detect color & size keys
-    const colorOptKey = validOptions.find((o) =>
-      ['màu', 'màu sắc', 'color', 'colour'].includes(o.name.toLowerCase())
-    )?.name;
+    // Detect color & size keys flexibly
+    const colorOpt = validOptions.find((o) => {
+      const n = String(o.name).toLowerCase().trim();
+      return n.includes('màu') || n.includes('color') || n.includes('colour') || n.includes('phối');
+    });
+    const colorOptKey = colorOpt?.name;
 
-    const sizeOptKey = validOptions.find((o) =>
-      ['kích cỡ', 'size', 'cỡ'].includes(o.name.toLowerCase())
-    )?.name;
+    const sizeOpt = validOptions.find((o) => {
+      const n = String(o.name).toLowerCase().trim();
+      return n.includes('size') || n.includes('kích') || n.includes('cỡ');
+    });
+    const sizeOptKey = sizeOpt?.name;
+
+    // Remaining options that are neither primary color nor size
+    const otherOptKeys = validOptions
+      .map((o) => o.name)
+      .filter((k) => k !== colorOptKey && k !== sizeOptKey);
+
+    const usedExistingIndices = new Set<number>();
+    const usedSkus = new Set<string>();
 
     const newVariants: VariantItem[] = combinations.map((combo, idx) => {
-      const colorVal = colorOptKey ? combo[colorOptKey] : 'Tiêu chuẩn';
-      const sizeVal = sizeOptKey ? combo[sizeOptKey] : 'Tiêu chuẩn';
+      let colorVal = colorOptKey ? combo[colorOptKey] : '';
+      let sizeVal = sizeOptKey ? combo[sizeOptKey] : '';
 
-      // Check if existing variant matches
-      const existing = variants.find((v) => {
-        const matchColor = (v.color || 'Tiêu chuẩn').toLowerCase() === colorVal.toLowerCase();
-        const matchSize = (v.size || 'Tiêu chuẩn').toLowerCase() === sizeVal.toLowerCase();
-        return matchColor && matchSize;
-      });
+      // If no color or size is explicitly labeled, assign from available options
+      if (!colorVal && !sizeVal) {
+        const keys = Object.keys(combo);
+        colorVal = combo[keys[0]] || 'Tiêu chuẩn';
+        sizeVal = keys.length > 1 ? combo[keys[1]] : 'Tiêu chuẩn';
+      } else {
+        if (!colorVal) colorVal = 'Tiêu chuẩn';
+        if (!sizeVal) sizeVal = 'Tiêu chuẩn';
+      }
 
-      if (existing) {
+      // Check if an existing variant matches this exact combination
+      let existingIndex = -1;
+      for (let i = 0; i < variants.length; i++) {
+        if (usedExistingIndices.has(i)) continue;
+        const v = variants[i];
+        if (v.options && Object.keys(v.options).length > 0) {
+          const matchAll = Object.entries(combo).every(
+            ([k, val]) => String(v.options?.[k] || '').toLowerCase() === String(val).toLowerCase()
+          );
+          if (matchAll) {
+            existingIndex = i;
+            break;
+          }
+        } else {
+          const matchColor = String(v.color || 'Tiêu chuẩn').toLowerCase() === String(colorVal).toLowerCase();
+          const matchSize = String(v.size || 'Tiêu chuẩn').toLowerCase() === String(sizeVal).toLowerCase();
+          if (matchColor && matchSize) {
+            existingIndex = i;
+            break;
+          }
+        }
+      }
+
+      if (existingIndex !== -1) {
+        usedExistingIndices.add(existingIndex);
+        const existing = variants[existingIndex];
+        const existingSku = existing.sku || `ATS-${baseCode}-${idx + 1}`;
+        usedSkus.add(existingSku);
         return {
           ...existing,
+          color: colorVal,
+          size: sizeVal,
           options: combo,
         };
       }
 
-      // Generate new SKU
-      const colorCode = colorVal !== 'Tiêu chuẩn' ? `-${generateSlugPart(colorVal).slice(0, 5)}` : '';
-      const sizeCode = sizeVal !== 'Tiêu chuẩn' ? `-${generateSlugPart(sizeVal)}` : `-${idx + 1}`;
-      const sku = `ATS-${baseCode}${colorCode}${sizeCode}`;
+      // Generate unique SKU
+      const colorCode = colorVal && colorVal !== 'Tiêu chuẩn' ? `-${generateSlugPart(colorVal).slice(0, 5)}` : '';
+      const sizeCode = sizeVal && sizeVal !== 'Tiêu chuẩn' ? `-${generateSlugPart(sizeVal)}` : '';
+      const otherCodeParts = otherOptKeys
+        .map((k) => generateSlugPart(combo[k]).slice(0, 4))
+        .filter(Boolean)
+        .join('-');
+      const otherCodeStr = otherCodeParts ? `-${otherCodeParts}` : '';
 
-      // Pick image for this color if any existing variant of this color has image
+      let baseSku = `ATS-${baseCode}${colorCode}${sizeCode}${otherCodeStr}`.replace(/--+/g, '-');
+      if (!colorCode && !sizeCode && !otherCodeStr) {
+        baseSku = `ATS-${baseCode}-${idx + 1}`;
+      }
+
+      let uniqueSku = baseSku;
+      let counter = 1;
+      while (usedSkus.has(uniqueSku)) {
+        uniqueSku = `${baseSku}-${counter++}`;
+      }
+      usedSkus.add(uniqueSku);
+
+      // Pick image for this color if any existing variant of this color has an image
       const sameColorVariant = variants.find(
-        (v) => (v.color || '').toLowerCase() === colorVal.toLowerCase() && v.image
+        (v) => String(v.color || '').toLowerCase() === String(colorVal).toLowerCase() && v.image
       );
       const chosenImage = sameColorVariant?.image || productImages[0]?.url || '';
 
       return {
-        sku,
+        variant_id: `temp_var_${Date.now()}_${idx + 1}`,
+        sku: uniqueSku,
         barcode: '',
         size: sizeVal,
         color: colorVal,
@@ -240,23 +304,27 @@ export function VariantManager({
     triggerToast(`Đã tạo thành công ${newVariants.length} biến thể từ các thuộc tính!`);
   };
 
-  // Add a single manual variant row
+  // Add a single manual variant row safely
   const handleAddManualRow = () => {
-    const nextSize = variants.length > 0 ? (Number(variants[variants.length - 1].size) + 1 || 42).toString() : '39';
-    const lastColor = variants[variants.length - 1]?.color || 'Tiêu chuẩn';
+    const lastVar = variants.length > 0 ? variants[variants.length - 1] : null;
+    const nextSize = lastVar ? (Number(lastVar.size) + 1 || 42).toString() : '39';
+    const lastColor = lastVar?.color || 'Tiêu chuẩn';
     const baseCode = generateSlugPart(productName).slice(0, 6) || 'PROD';
-    const sku = `ATS-${baseCode}-${generateSlugPart(lastColor).slice(0, 4)}-${nextSize}-${Date.now().toString().slice(-3)}`;
+    const uniqueSuffix = Date.now().toString().slice(-4);
+    const sku = `ATS-${baseCode}-${generateSlugPart(lastColor).slice(0, 4) || 'VAR'}-${nextSize}-${uniqueSuffix}`;
 
     const newRow: VariantItem = {
+      variant_id: `temp_var_${Date.now()}`,
       sku,
       barcode: '',
       size: nextSize,
       color: lastColor,
-      price: variants[0]?.price || 2000000,
-      compare_at_price: variants[0]?.compare_at_price || 0,
-      cost_price: variants[0]?.cost_price || 1400000,
+      price: Number(variants[0]?.price) || 2000000,
+      compare_at_price: Number(variants[0]?.compare_at_price) || 0,
+      cost_price: Number(variants[0]?.cost_price) || 1400000,
       stock: 5,
       image: variants[0]?.image || productImages[0]?.url || '',
+      options: lastVar?.options ? { ...lastVar.options, Size: nextSize } : {},
     };
 
     onChange([...variants, newRow]);
@@ -271,13 +339,14 @@ export function VariantManager({
     onChange(variants.filter((_, i) => i !== idx));
   };
 
-  // Clone variant
+  // Clone variant safely
   const handleCloneVariant = (idx: number) => {
     const target = variants[idx];
+    if (!target) return;
     const clone: VariantItem = {
       ...target,
-      variant_id: undefined,
-      sku: `${target.sku}-COPY`,
+      variant_id: `temp_var_${Date.now()}`,
+      sku: `${target.sku || 'SKU'}-COPY-${Date.now().toString().slice(-3)}`,
     };
     const next = [...variants];
     next.splice(idx + 1, 0, clone);
@@ -322,8 +391,9 @@ export function VariantManager({
 
   // Assign Image to all variants of a specific color
   const handleAssignImageToColor = (colorName: string, imageUrl: string) => {
+    const target = String(colorName || '').toLowerCase();
     const copy = variants.map((v) => {
-      if ((v.color || '').toLowerCase() === colorName.toLowerCase()) {
+      if (String(v.color || '').toLowerCase() === target) {
         return { ...v, image: imageUrl };
       }
       return v;
@@ -411,7 +481,7 @@ export function VariantManager({
             {/* Quick Preset Buttons */}
             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
               <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Thêm mẫu nhanh:</span>
-              {!options.some((o) => o.name.toLowerCase() === 'màu sắc') && (
+              {!options.some((o) => String(o.name || '').toLowerCase() === 'màu sắc') && (
                 <button
                   type="button"
                   onClick={() => handleAddOption('Màu sắc', ['Trắng', 'Đen'])}
@@ -422,7 +492,7 @@ export function VariantManager({
                 </button>
               )}
 
-              {!options.some((o) => o.name.toLowerCase() === 'kích cỡ') && (
+              {!options.some((o) => String(o.name || '').toLowerCase() === 'kích cỡ') && (
                 <button
                   type="button"
                   onClick={() => handleAddOption('Kích cỡ', ['39', '40', '41', '42'])}
@@ -463,8 +533,9 @@ export function VariantManager({
 
             {/* List of Defined Options */}
             {options.map((opt, optIdx) => {
-              const isColorOpt = ['màu', 'màu sắc', 'color'].includes(opt.name.toLowerCase());
-              const isSizeOpt = ['size', 'kích cỡ', 'cỡ'].includes(opt.name.toLowerCase());
+              const optNameLower = String(opt.name || '').toLowerCase();
+              const isColorOpt = ['màu', 'màu sắc', 'color'].includes(optNameLower);
+              const isSizeOpt = ['size', 'kích cỡ', 'cỡ'].includes(optNameLower);
 
               return (
                 <div
@@ -519,7 +590,7 @@ export function VariantManager({
                               height: '10px',
                               borderRadius: '50%',
                               background:
-                                PRESET_COLORS.find((c) => c.name.toLowerCase() === val.toLowerCase())?.hex ||
+                                PRESET_COLORS.find((c) => String(c.name).toLowerCase() === String(val).toLowerCase())?.hex ||
                                 '#94a3b8',
                               border: '1px solid rgba(255,255,255,0.2)',
                             }}
@@ -578,7 +649,7 @@ export function VariantManager({
                       </div>
                       <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
                         {PRESET_COLORS.map((pc) => {
-                          const isAdded = opt.values.some((v) => v.toLowerCase() === pc.name.toLowerCase());
+                          const isAdded = opt.values.some((v) => String(v).toLowerCase() === String(pc.name).toLowerCase());
                           return (
                             <button
                               key={pc.name}
@@ -935,7 +1006,7 @@ export function VariantManager({
                 const isOutOfStock = Number(v.stock) <= 0;
                 return (
                   <tr
-                    key={v.variant_id || idx}
+                    key={v.variant_id ? `${v.variant_id}_${idx}` : `var_${idx}`}
                     style={{
                       borderBottom: '1px solid var(--border-subtle)',
                       background: isOutOfStock ? 'rgba(244, 63, 94, 0.03)' : 'transparent',
@@ -981,8 +1052,9 @@ export function VariantManager({
                             borderRadius: '50%',
                             flexShrink: 0,
                             background:
-                              PRESET_COLORS.find((c) => c.name.toLowerCase() === (v.color || '').toLowerCase())?.hex ||
-                              '#94a3b8',
+                              PRESET_COLORS.find(
+                                (c) => String(c.name).toLowerCase() === String(v.color || '').toLowerCase()
+                              )?.hex || '#94a3b8',
                             border: '1px solid rgba(255,255,255,0.2)',
                           }}
                         />
